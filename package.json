@@ -1,0 +1,10 @@
+{
+  "name": "cryptopay-monorepo",
+  "scripts": {
+    "install-backend": "cd backend && npm install",
+    "install-pos": "cd mobilePOS && npm install",
+    "install-client": "cd mobileClient && npm install",
+    "install-marketplace": "cd marketplace && npm install",
+    "install-all": "npm run install-backend && npm run install-pos && npm run install-client && npm run install-marketplace"
+  }
+}
