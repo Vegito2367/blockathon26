@@ -3,24 +3,24 @@ import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-n
 import ConnectButton from '@/components/connectbutton'
 import { useAccount } from '@reown/appkit-react-native'
 
-const SEPOLIA_RPC = 'https://ethereum-sepolia-rpc.publicnode.com'
-
-async function fetchSepoliaBalance(address: string): Promise<string> {
-  const res = await fetch(SEPOLIA_RPC, {
+const BASE_SEPOLIA_RPC = 'https://sepolia.base.org'
+const TOKEN_ADDRESS = '0xbD84621010fF42EB5bF72872BE6ec6FE67Db546f'
+const TOKEN_DECIMALS = 18 // match your token
+async function fetchTokenBalance(address: string): Promise<string> {
+  const data = '0x70a08231' + address.slice(2).toLowerCase().padStart(64, '0')
+  const res = await fetch(BASE_SEPOLIA_RPC, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'eth_getBalance',
-      params: [address, 'latest'],
+      jsonrpc: '2.0', id: 1,
+      method: 'eth_call',
+      params: [{ to: TOKEN_ADDRESS, data }, 'latest'],
     }),
   })
-  const data = await res.json()
-  if (!data?.result) return '0'
-  const wei = BigInt(data.result)
-  const eth = Number(wei) / 1e18
-  return eth.toFixed(6)
+  const json = await res.json()
+  if (!json?.result || json.result === '0x') return '0'
+  const raw = BigInt(json.result)
+  return (Number(raw) / 10 ** TOKEN_DECIMALS).toFixed(4)
 }
 
 function shortenAddress(addr: string) {
@@ -44,7 +44,7 @@ export default function HomeScreen() {
 
     const raw = address.includes(':') ? address.split(':').pop()! : address
 
-    fetchSepoliaBalance(raw)
+    fetchTokenBalance(raw)
       .then((b) => { if (!cancelled) setBalance(b) })
       .catch(() => { if (!cancelled) setBalance(null) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -57,7 +57,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.logo}>CryptoPay</Text>
-        <Text style={styles.subtitle}>Sepolia Testnet</Text>
+        <Text style={styles.subtitle}>Base Sepolia</Text>
       </View>
 
       {!isConnected ? (
@@ -67,7 +67,7 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.heroTitle}>Connect Your Wallet</Text>
           <Text style={styles.heroDescription}>
-            Link your wallet to view your Sepolia ETH balance and start transacting.
+            Link your wallet to view your Base Sepolia RLUSD balance and start transacting.
           </Text>
           <View style={styles.connectWrapper}>
             <ConnectButton />
@@ -81,11 +81,11 @@ export default function HomeScreen() {
             {loading ? (
               <ActivityIndicator size="large" color="#6366f1" style={{ marginVertical: 12 }} />
             ) : (
-              <Text style={styles.balanceAmount}>{balance ?? '0'} <Text style={styles.balanceCurrency}>ETH</Text></Text>
+              <Text style={styles.balanceAmount}>{balance ?? '0'} <Text style={styles.balanceCurrency}>RLUSD</Text></Text>
             )}
             <View style={styles.networkBadge}>
               <View style={styles.networkDot} />
-              <Text style={styles.networkText}>Sepolia Testnet</Text>
+              <Text style={styles.networkText}>Base Sepolia</Text>
             </View>
           </View>
 

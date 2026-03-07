@@ -18,8 +18,8 @@ const io = new Server(httpServer, { cors: { origin: "*" } });
 
 // --- CONFIGURATION ---
 // USDC on Base Sepolia (standing in for RLUSD in hackathon)
-const RLUSD_TOKEN_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
-const RLUSD_DECIMALS = 6;
+const RLUSD_TOKEN_ADDRESS = "0xbD84621010fF42EB5bF72872BE6ec6FE67Db546f";
+const RLUSD_DECIMALS = 18;
 const CHAIN_ID = 84532; // Base Sepolia
 
 // Merchant receives RLUSD directly — no treasury middleman
