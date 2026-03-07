@@ -25,12 +25,33 @@ export default function CheckoutPage() {
         setFormData((prev) => ({ ...prev, paymentOption: option }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (formData.paymentOption === "crypto") {
             const finalTotal = (totalPrice * 1.08).toFixed(2);
-            router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}`);
+            const terminal_id = "term_01"; // Default terminal ID for demonstration
+
+            try {
+                const response = await fetch("http://localhost:3001/api/checkout", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        amount_usd: parseFloat(finalTotal),
+                        terminal_id: terminal_id
+                    }),
+                });
+
+                if (!response.ok) {
+                    console.error("Failed to initiate crypto payment. Status:", response.status);
+                }
+            } catch (error) {
+                console.error("Error calling checkout API:", error);
+            }
+
+            router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}&terminal_id=${terminal_id}`);
         } else {
             // In a real app, process payment here.
             setIsSubmitted(true);
