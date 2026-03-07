@@ -44,7 +44,8 @@
           }
         }
       ],
-      "react-native-nfc-manager"
+      "react-native-nfc-manager",
+       "./queries.js"
     ],
     "experiments": {
       "typedRoutes": true,
