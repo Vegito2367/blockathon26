@@ -1,65 +1,109 @@
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
+const CATEGORIES = [
+  { id: "croissants", name: "Croissants", image: "https://images.unsplash.com/photo-1549903072-7e6e0d234247?w=1080&q=80", link: "/menu#croissants" },
+  { id: "cakes", name: "Cakes", image: "/images/cakes_category.jpg", link: "/menu#cakes" },
+  { id: "cupcakes", name: "Cupcakes", image: "/images/cupcakes_category.jpg", link: "/menu#cupcakes" },
+  { id: "breads", name: "Artisan Breads", image: "/images/breads_category.jpg", link: "/menu#breads" },
+];
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex flex-col min-h-screen bg-[#fdfbfb]">
+      <section className="relative h-[80vh] w-full flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 z-0 bg-black">
+          <Image
+            src="https://images.unsplash.com/photo-1555507036-ab1f40ce88cb?w=1080&q=80"
+            alt="Freshly baked artisan bread"
+            layout="fill"
+            objectFit="cover"
+            priority
+            className="opacity-40 transform hover:scale-105 transition-transform duration-[20s] ease-out"
+          />
+        </div>
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto flex flex-col items-center">
+          <h1 className="font-playfair text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight drop-shadow-xl text-center">
+            Baked with Joy, <br /> Served with Love.
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+          <p className="text-lg md:text-2xl text-white/90 mb-10 max-w-2xl font-light drop-shadow-lg text-center bg-black/20 p-4 rounded-xl backdrop-blur-sm">
+            Experience the rich tradition of artisan baking. Fresh pastries, rustic breads, and fine cakes made daily from scratch.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Link
+              href="/menu"
+              className="px-8 py-4 bg-[#f4dbd8] hover:bg-[#eaccc8] text-[#1a1a1a] font-semibold rounded-full shadow-xl hover:shadow-2xl transition-all hover:-translate-y-1 flex items-center justify-center gap-2"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Start Ordering <ArrowRight className="w-5 h-5" />
+            </Link>
+            <Link
+              href="#categories"
+              className="px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/30 text-white font-semibold rounded-full transition-all flex items-center justify-center"
             >
-              Learning
-            </a>{" "}
-            center.
+              Explore Categories
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Shop by Category Section */}
+      <section id="categories" className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="text-center mb-16">
+          <h2 className="font-playfair text-4xl font-bold text-[#1a1a1a] mb-4 tracking-tight">Shop by Category</h2>
+          <div className="w-24 h-1 bg-[#eaccc8] mx-auto rounded-full mb-6"></div>
+          <p className="text-[#3a3a3a] max-w-2xl mx-auto text-lg">
+            Whether you are craving a buttery morning pastry or the perfect celebration cake, we have something sweet for everyone.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {CATEGORIES.map((cat) => (
+            <Link href={cat.link} key={cat.id} className="group relative h-80 w-full overflow-hidden rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300">
+              <Image
+                src={cat.image}
+                alt={cat.name}
+                layout="fill"
+                objectFit="cover"
+                className="group-hover:scale-110 transition-transform duration-700 ease-in-out"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+              <div className="absolute inset-0 p-6 flex flex-col justify-end">
+                <h3 className="font-playfair text-3xl font-bold text-white mb-2 drop-shadow-md">{cat.name}</h3>
+                <div className="flex items-center text-[#f4dbd8] font-medium group-hover:underline">
+                  Browse <ArrowRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 transition-opacity transform -translate-x-2 group-hover:translate-x-0" />
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
-      </main>
+      </section>
+
+      {/* Banner*/}
+      <section className="bg-[#1a1a1a] py-20 mt-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-12">
+          <div className="md:w-1/2 text-white text-center md:text-left">
+            <h2 className="font-playfair text-4xl mt-2 font-bold mb-6">Baked fresh daily, <br /><span className="text-[#f4dbd8]">just for you.</span></h2>
+            <p className="text-gray-300 text-lg mb-8 max-w-lg mx-auto md:mx-0 font-light">
+              We believe in the power of simple, honest ingredients. That's why everything in our bakery is made from scratch, without preservatives, every single morning.
+            </p>
+            <Link
+              href="/menu"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-[#f4dbd8] text-[#1a1a1a] hover:bg-[#eaccc8] font-semibold rounded-full shadow-lg transition-all"
+            >
+              Start Ordering <ArrowRight className="w-5 h-5" />
+            </Link>
+          </div>
+          <div className="md:w-1/2 relative w-full h-80 rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+            <Image
+              src="/images/cupcake.jpg"
+              alt="Fresh ingredients"
+              layout="fill"
+              objectFit="cover"
+            />
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
