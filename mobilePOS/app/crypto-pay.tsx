@@ -1,24 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { io, Socket } from 'socket.io-client';
 
 type PaymentStep = 'summary' | 'processing' | 'ready' | 'completed';
 
+// Connect to the backend server
+// Note: Changed from 10.0.2.2 to your Mac's local Wi-Fi IP address so a physical device can connect
+const SOCKET_URL = 'http://10.104.84.121:3001';
+
 export default function CryptoPayScreen() {
     const [step, setStep] = useState<PaymentStep>('summary');
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [paymentData, setPaymentData] = useState<any>(null);
+    const { terminal_id = 'term_01' } = useLocalSearchParams<{ terminal_id: string }>();
+
+    useEffect(() => {
+        // Initialize socket connection
+        const newSocket = io(SOCKET_URL);
+        setSocket(newSocket);
+
+        newSocket.on('connect', () => {
+            console.log('Connected to backend:', newSocket.id);
+            newSocket.emit('join_terminal', terminal_id);
+        });
+
+        newSocket.on('payment_intent', (data) => {
+            console.log('Received payment intent:', data);
+            setPaymentData(data);
+            setStep('summary'); // Automatically show summary when a new payment intent arrives
+        });
+
+        newSocket.on('payment_success', (data) => {
+            console.log('Payment successful:', data);
+            setStep('completed');
+        });
+
+        return () => {
+            newSocket.disconnect();
+        };
+    }, [terminal_id]);
 
     useEffect(() => {
         let timeout: ReturnType<typeof setTimeout>;
         if (step === 'processing') {
             timeout = setTimeout(() => {
                 setStep('ready');
-            }, 3000); // 3 seconds of processing
-        } else if (step === 'ready') {
-            // Auto-complete after tapping or some timeout (e.g., 5 seconds for simulation)
-            timeout = setTimeout(() => {
-                setStep('completed');
-            }, 5000);
+            }, 1000); // 1 seconds of processing indicator before showing 'Ready to Pay'
         }
         return () => clearTimeout(timeout);
     }, [step]);
@@ -37,12 +66,12 @@ export default function CryptoPayScreen() {
         <View style={styles.content}>
             <Text style={styles.title}>Order Summary</Text>
             <View style={styles.card}>
-                <Text style={styles.itemName}>1x Crypto Bakery Order</Text>
-                <Text style={styles.price}>$24.50</Text>
+                <Text style={styles.itemName}>Crypto Bakery Order</Text>
+                <Text style={styles.price}>${paymentData?.amountUsd?.toFixed(2) || '0.00'}</Text>
             </View>
             <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalAmount}>$24.50</Text>
+                <Text style={styles.totalAmount}>${paymentData?.amountUsd?.toFixed(2) || '0.00'}</Text>
             </View>
 
             <TouchableOpacity style={styles.payButton} onPress={handlePayPress}>
