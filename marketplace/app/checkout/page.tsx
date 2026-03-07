@@ -4,14 +4,16 @@ import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, CreditCard, Banknote, Bitcoin } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function CheckoutPage() {
     const { cart, totalPrice, clearCart } = useCart();
     const [formData, setFormData] = useState({
         name: "",
         contact: "",
-        paymentOption: "credit",
+        paymentOption: "crypto", // default to crypto for testing
     });
+    const router = useRouter();
     const [isSubmitted, setIsSubmitted] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -25,9 +27,15 @@ export default function CheckoutPage() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // In a real app, process payment here.
-        setIsSubmitted(true);
-        clearCart();
+        
+        if (formData.paymentOption === "crypto") {
+            const finalTotal = (totalPrice * 1.08).toFixed(2);
+            router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}`);
+        } else {
+            // In a real app, process payment here.
+            setIsSubmitted(true);
+            clearCart();
+        }
     };
 
     if (isSubmitted) {
