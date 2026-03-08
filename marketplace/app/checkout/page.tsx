@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useCart } from "../context/CartContext";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, CreditCard, Banknote, Bitcoin } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+
+
 export default function CheckoutPage() {
+    const terminal_id = "term_01"; // Default terminal ID for demonstration
+
     const { cart, totalPrice, clearCart } = useCart();
     const [formData, setFormData] = useState({
         name: "",
@@ -50,14 +54,17 @@ export default function CheckoutPage() {
             } catch (error) {
                 console.error("Error calling checkout API:", error);
             }
-
             router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}&terminal_id=${terminal_id}`);
+            
         } else {
             // In a real app, process payment here.
-            setIsSubmitted(true);
+            
             clearCart();
         }
     };
+
+   
+    
 
     if (isSubmitted) {
         return (

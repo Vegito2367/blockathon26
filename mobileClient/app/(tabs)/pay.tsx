@@ -8,9 +8,11 @@ import {
   ScrollView,
   Animated,
   Easing,
-  Dimensions
+  Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import NfcManager, { NfcTech, Ndef, NfcEvents, TagEvent } from 'react-native-nfc-manager';
+import { useProvider, useAccount } from '@reown/appkit-react-native';
 
 // --- Types ---
 interface RLUSDPaymentPayload {
@@ -22,6 +24,18 @@ interface RLUSDPaymentPayload {
   chainId: number;
 }
 
+// ERC-20 transfer(address,uint256) function selector
+const ERC20_TRANSFER_SELECTOR = '0xa9059cbb';
+
+function encodeErc20Transfer(to: string, amountRaw: string): string {
+  // Pad address to 32 bytes (remove 0x prefix, left-pad to 64 hex chars)
+  const paddedAddress = to.slice(2).toLowerCase().padStart(64, '0');
+  // Convert amount to hex and pad to 32 bytes
+  const amountHex = BigInt(amountRaw).toString(16).padStart(64, '0');
+  return `${ERC20_TRANSFER_SELECTOR}${paddedAddress}${amountHex}`;
+}
+
+const SERVER_URL = "http://10.104.84.121:3001"
 // --- Visual Component: Pulsating Ring ---
 const PulsingRing = ({ delay }: { delay: number }) => {
   const animValue = useRef(new Animated.Value(0)).current;
@@ -42,12 +56,12 @@ const PulsingRing = ({ delay }: { delay: number }) => {
 
   const scale = animValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.8, 2.5], // Expands from 80% to 250% size
+    outputRange: [0.8, 2.5],
   });
 
   const opacity = animValue.interpolate({
     inputRange: [0, 0.5, 1],
-    outputRange: [0.6, 0.3, 0], // Fades out
+    outputRange: [0.6, 0.3, 0],
   });
 
   return (
@@ -66,6 +80,11 @@ const PulsingRing = ({ delay }: { delay: number }) => {
 export default function NfcReceiver() {
   const [payload, setPayload] = useState<RLUSDPaymentPayload | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
+
+  const { provider } = useProvider();
+  const { address, isConnected } = useAccount();
 
   useEffect(() => {
     const initNfc = async () => {
@@ -78,12 +97,10 @@ export default function NfcReceiver() {
       } catch (e) {
         console.warn('NFC start error:', e);
       }
-      await NfcManager.start();
     };
 
     initNfc();
 
-    // Set up persistent NDEF listener
     NfcManager.setEventListener(NfcEvents.DiscoverTag, (tag: TagEvent) => {
       console.log('NFC Background Tag Discovered:', tag);
 
@@ -103,7 +120,7 @@ export default function NfcReceiver() {
           console.error('Error parsing background NDEF tag:', err);
         }
       }
-      NfcManager.unregisterTagEvent().catch(() => 0); // Stop listening after one successful read
+      NfcManager.unregisterTagEvent().catch(() => 0);
       setIsScanning(false);
     });
 
@@ -117,19 +134,17 @@ export default function NfcReceiver() {
     try {
       setIsScanning(true);
       setPayload(null);
+      setTxHash(null);
 
-      // Register tag event listener. This is an alternative to requestTechnology
-      // that sometimes works better with Android HCE tags.
       await NfcManager.registerTagEvent();
 
-      // Setting a timeout in case no tag is found
       setTimeout(() => {
         if (isScanning) {
           NfcManager.unregisterTagEvent().catch(() => 0);
           setIsScanning(false);
           console.log('NFC scan timeout');
         }
-      }, 15000); // 15 seconds timeout
+      }, 15000);
 
     } catch (ex) {
       console.log('NFC Register Tag Event Error:', ex);
@@ -138,11 +153,57 @@ export default function NfcReceiver() {
     }
   };
 
+  const cancelScan = async () => {
+    NfcManager.unregisterTagEvent();
+    setIsScanning(false);
+  };
 
-const cancelScan = async () => {
-  NfcManager.unregisterTagEvent();
-  setIsScanning(false);
-};
+  const sendPayment = async () => {
+    if (!payload) return;
+
+    if (!isConnected || !provider || !address) {
+      Alert.alert('Wallet Not Connected', 'Please connect your wallet on the Home tab first.');
+      return;
+    }
+
+    try {
+      setIsSending(true);
+
+      // Get raw address without CAIP prefix
+      const fromAddress = address.includes(':') ? address.split(':').pop()! : address;
+
+      const data = encodeErc20Transfer(payload.to, payload.amountRaw);
+
+      const chainIdHex = `0x${payload.chainId.toString(16)}`;
+
+      const txHash = await provider.request<string>({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: fromAddress,
+          to: payload.tokenAddress,
+          data: data,
+          value: '0x0',
+          gas: '0x1D4C0'
+        }],
+      });
+
+      console.log('Transaction sent:', txHash);
+      setTxHash(txHash);
+
+      fetch(`${SERVER_URL}/api/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txHash, terminal_id: 'term_01' }), 
+      }).catch(err => console.warn('Verify call failed:', err));
+      Alert.alert('Payment Sent!', `TX: ${txHash}`);
+    } catch (error: any) {
+      console.error('Transaction error:', error);
+      Alert.alert('Transaction Failed', error?.message || 'Failed to send transaction');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -151,12 +212,10 @@ const cancelScan = async () => {
       {isScanning ? (
         <View style={styles.scannerContainer}>
           <View style={styles.pulseWrapper}>
-            {/* Multiple rings for ripple effect */}
             <PulsingRing delay={0} />
             <PulsingRing delay={600} />
             <PulsingRing delay={1200} />
 
-            {/* Center Anchor */}
             <View style={styles.centerAnchor}>
               <Text style={styles.nfcIcon}>NFC</Text>
             </View>
@@ -169,7 +228,6 @@ const cancelScan = async () => {
           </TouchableOpacity>
         </View>
       ) : (
-        /* --- Idle / Result UI State --- */
         <>
           <TouchableOpacity style={styles.scanButton} onPress={readNfc}>
             <Text style={styles.scanButtonText}>
@@ -179,26 +237,32 @@ const cancelScan = async () => {
 
           {payload && (
             <ScrollView style={styles.resultContainer}>
-              <Text style={styles.header}>Payment Received</Text>
+              <Text style={styles.header}>Payment Request</Text>
 
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Amount USD</Text>
                 <Text style={styles.amountValue}>${payload.amountUsd.toFixed(2)}</Text>
               </View>
 
-              <View style={styles.detailBox}>
-                <Text style={styles.detailLabel}>Raw Amount:</Text>
-                <Text style={styles.detailValue}>{payload.amountRaw}</Text>
 
-                <Text style={styles.detailLabel}>Merchant:</Text>
-                <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">{payload.to}</Text>
-
-                <Text style={styles.detailLabel}>Token:</Text>
-                <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">{payload.tokenAddress}</Text>
-
-                <Text style={styles.detailLabel}>Chain ID:</Text>
-                <Text style={styles.detailValue}>{payload.chainId}</Text>
-              </View>
+              {txHash ? (
+                <View style={styles.successBox}>
+                  <Text style={styles.successText}>Payment Sent!</Text>
+                  <Text style={styles.txHash} numberOfLines={1} ellipsizeMode="middle">{txHash}</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.payButton, isSending && styles.payButtonDisabled]}
+                  onPress={sendPayment}
+                  disabled={isSending}
+                >
+                  {isSending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.payButtonText}>Confirm & Pay ${payload.amountUsd.toFixed(2)}</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </ScrollView>
           )}
         </>
@@ -212,12 +276,12 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding:20,
+    paddingTop: 50,
     justifyContent: 'center',
     backgroundColor: '#fff',
     alignItems: 'center',
   },
-  // --- Scanner Styles ---
   scannerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -267,7 +331,6 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
     fontSize: 16,
   },
-  // --- Result Styles ---
   scanButton: {
     backgroundColor: '#007AFF',
     paddingVertical: 16,
@@ -333,5 +396,38 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     color: '#555',
+  },
+  payButton: {
+    backgroundColor: '#2E7D32',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  payButtonDisabled: {
+    opacity: 0.6,
+  },
+  payButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  successBox: {
+    backgroundColor: '#E8F5E9',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  successText: {
+    color: '#2E7D32',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  txHash: {
+    fontSize: 12,
+    color: '#555',
+    fontFamily: 'monospace',
   },
 });
