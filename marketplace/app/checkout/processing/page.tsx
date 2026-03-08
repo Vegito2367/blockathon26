@@ -6,11 +6,11 @@ import { useCart } from "../../context/CartContext";
 import { CheckCircle, Loader2, SmartphoneNfc } from "lucide-react";
 import Link from "next/link";
 import { io } from "socket.io-client";
-
+import { pinata } from "@/pinataProvider";
 function ProcessingContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const { clearCart } = useCart();
+    const { clearCart, cart } = useCart();
 
     const [status, setStatus] = useState<"processing" | "completed">("processing");
 
@@ -29,13 +29,28 @@ function ProcessingContent() {
         newSocket.on('payment_success', (data) => {
             //0x7345eb99d8429ebce1d9ff64c38cb84832c8bbeaee5da5e0594e620b9e2bd447
             console.log('Payment successful:', data);
-            setStatus("completed");
+            completeTransaction();
         });
 
         return () => {
             newSocket.disconnect();
         };
     }, [terminal_id]);
+
+    async function completeTransaction(){
+        setStatus("completed");
+        const upload = await pinata.upload.public.json({
+            items: cart,
+            amount: amount,
+            name: name,
+            contact: contact
+        }).keyvalues(
+            {
+                username: name,
+            }
+        )
+        
+    }
 
     if (status === "completed") {
         return (
