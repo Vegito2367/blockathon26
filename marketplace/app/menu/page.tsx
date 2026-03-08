@@ -8,36 +8,42 @@ import { useEffect, useState } from "react";
 
 const MENU_CATEGORIES = [
     {
-        id: "croissants",
-        name: "Croissants",
+        id: "breads",
+        name: "Artisan Breads",
         items: [
-            { id: "c1", name: "Classic Croissant", price: 4.5, image: "https://images.unsplash.com/photo-1549903072-7e6e0d234247?w=1080&q=80", description: "Flaky and buttery, baked fresh daily." },
-            { id: "c2", name: "Almond Croissant", price: 5.5, image: "https://images.unsplash.com/photo-1549903072-7e6e0d234247?w=1080&q=80", description: "Filled and topped with sweet almond frangipane." },
-            { id: "c3", name: "Pain au Chocolat", price: 5.0, image: "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=1080&q=80", description: "Classic croissant dough with dark chocolate batons." },
+            { id: "b1", name: "Rustic Sourdough", price: 8.0, image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&q=80", description: "Naturally leavened with our 10-year-old starter." },
+            { id: "b2", name: "Rosemary Focaccia", price: 6.5, image: "https://images.unsplash.com/photo-1608198093002-ad4e005484ec?w=800&q=80", description: "Olive oil rich flatbread topped with fresh rosemary and sea salt." },
+            { id: "b3", name: "Whole Wheat Loaf", price: 7.0, image: "https://images.unsplash.com/photo-1534620808146-d33bb39128b2?w=800&q=80", description: "Hearty and nutritious, perfect for morning toast." },
         ]
     },
     {
         id: "cakes",
         name: "Cakes",
         items: [
-            { id: "k1", name: "Vanilla Bean Cake", price: 45.0, image: "/images/cake.jpg", description: "Light Madagascar vanilla sponge with Swiss meringue buttercream." },
-            { id: "k2", name: "Strawberry Shortcake", price: 48.0, image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=1080&q=80", description: "Layers of vanilla sponge, fresh strawberries, and whipped cream." },
+            { id: "c1", name: "Vanilla Bean Layer Cake", price: 45.0, image: "https://images.unsplash.com/photo-1588195538326-c5b1e9f80a1b?w=800&q=80", description: "Light Madagascar vanilla sponge with Swiss meringue buttercream." },
+            { id: "c2", name: "Strawberry Shortcake", price: 48.0, image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=800&q=80", description: "Layers of vanilla sponge, fresh strawberries, and whipped cream." },
+            { id: "c3", name: "Rich Chocolate Fudge", price: 50.0, image: "https://images.unsplash.com/photo-1621303837174-89787a7d4729?w=800&q=80", description: "Decadent dark chocolate layers separated by fudge icing." },
+            { id: "c4", name: "Lemon Raspberry Cake", price: 46.0, image: "https://images.unsplash.com/photo-1602351447937-745cb720612f?w=800&q=80", description: "Zesty lemon cake filled with fresh raspberry compote." },
         ]
     },
     {
-        id: "cupcakes",
-        name: "Cupcakes",
+        id: "pastries",
+        name: "Pastries",
         items: [
-            { id: "cup1", name: "Strawberry Cupcake", price: 5.5, image: "/images/cupcake.jpg", description: "Soft vanilla cupcake topped with fresh strawberry frosting." },
-            { id: "cup2", name: "Double Chocolate Cupcake", price: 5.5, image: "https://images.unsplash.com/photo-1550617931-e17a7b70dce2?w=1080&q=80", description: "Rich chocolate cake with fudgy chocolate buttercream." },
+            { id: "p1", name: "Classic Butter Croissant", price: 4.5, image: "https://images.unsplash.com/photo-1623334044303-241021148842?w=800&q=80", description: "Flaky and buttery, crafted with European butter." },
+            { id: "p2", name: "Almond Croissant", price: 5.5, image: "https://images.unsplash.com/photo-1691480162735-9b91238080f6?w=800&q=80", description: "Twice-baked and filled with sweet almond frangipane." },
+            { id: "p3", name: "Pain au Chocolat", price: 5.0, image: "https://images.unsplash.com/photo-1599940778173-e276d4acb2bb?w=800&q=80", description: "Classic dough enveloping dark chocolate batons." },
+            { id: "p4", name: "Fruit Danish", price: 4.8, image: "https://images.unsplash.com/photo-1681218079567-35aef7c8e7e4?w=800&q=80", description: "Seasonal fruit atop a creamy custard base inside flaky pastry." },
         ]
     },
     {
-        id: "breads",
-        name: "Artisan Breads",
+        id: "drinks",
+        name: "Drinks",
         items: [
-            { id: "b1", name: "Rustic Sourdough", price: 8.0, image: "/images/bread.jpg", description: "Naturally leavened with our 10-year-old starter." },
-            { id: "b2", name: "French Baguette", price: 4.5, image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1080&q=80", description: "Crispy crust and chewy interior, baked daily." },
+            { id: "d1", name: "Artisan Espresso", price: 3.5, image: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80", description: "Double shot of our house-roasted origin blend." },
+            { id: "d2", name: "Vanilla Latte", price: 5.0, image: "https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=800&q=80", description: "Espresso with steamed milk and house-made vanilla syrup." },
+            { id: "d3", name: "Matcha Green Tea", price: 5.5, image: "https://images.unsplash.com/photo-1511920170033-f8396924c348?w=800&q=80", description: "Ceremonial grade matcha blended beautifully with oat milk." },
+            { id: "d4", name: "Fresh Squeezed OJ", price: 4.0, image: "https://images.unsplash.com/photo-1506619216599-9d16d0903dfd?w=800&q=80", description: "Cold-pressed oranges, squeezed to order." },
         ]
     }
 ];
@@ -91,9 +97,8 @@ export default function MenuPage() {
                                                 <Image
                                                     src={item.image}
                                                     alt={item.name}
-                                                    layout="fill"
-                                                    objectFit="cover"
-                                                    className="group-hover:scale-105 transition-transform duration-500 ease-in-out"
+                                                    fill
+                                                    className="object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out"
                                                 />
                                             </div>
                                             <div className="p-5 flex flex-col flex-grow">
