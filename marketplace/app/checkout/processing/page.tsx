@@ -26,10 +26,10 @@ function ProcessingContent() {
             newSocket.emit('join_terminal', terminal_id);
         });
 
-        newSocket.on('payment_success', (data) => {
+        newSocket.on('payment_success', async (data) => {
             //0x7345eb99d8429ebce1d9ff64c38cb84832c8bbeaee5da5e0594e620b9e2bd447
             console.log('Payment successful:', data);
-            completeTransaction();
+            await completeTransaction();
         });
 
         return () => {
