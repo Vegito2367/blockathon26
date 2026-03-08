@@ -55,20 +55,26 @@ export default function CheckoutPage() {
                 console.error("Error calling checkout API:", error);
             }
 
-            router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}&terminal_id=${terminal_id}`);
+            
         } else {
             // In a real app, process payment here.
             clearCart();
         }
     };
 
+    async function handleProcessComplete(){
+        setIsSubmitted(true);
+        const finalTotal = (totalPrice * 1.08).toFixed(2);
+        router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}&terminal_id=${terminal_id}`);
+        clearCart();
+    }
     useEffect(() => {
         // Initialize socket connection
         const newSocket = io(SOCKET_URL);
 
         newSocket.on('payment_success', (data) => {
             console.log('Payment successful:', data);
-            setIsSubmitted(true);
+            handleProcessComplete();
         });
 
         return () => {
