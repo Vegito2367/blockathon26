@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
+import { HCESession, NFCTagType4, NFCTagType4NDEFContentType } from 'react-native-hce';
 
 type PaymentStep = 'summary' | 'processing' | 'ready' | 'completed';
 
@@ -12,14 +13,13 @@ const SOCKET_URL = 'http://10.104.84.121:3001';
 
 export default function CryptoPayScreen() {
     const [step, setStep] = useState<PaymentStep>('summary');
-    const [socket, setSocket] = useState<Socket | null>(null);
     const [paymentData, setPaymentData] = useState<any>(null);
+    const [hceSession, setHceSession] = useState<HCESession | null>(null);
     const { terminal_id = 'term_01' } = useLocalSearchParams<{ terminal_id: string }>();
 
     useEffect(() => {
         // Initialize socket connection
         const newSocket = io(SOCKET_URL);
-        setSocket(newSocket);
 
         newSocket.on('connect', () => {
             console.log('Connected to backend:', newSocket.id);
@@ -39,8 +39,38 @@ export default function CryptoPayScreen() {
 
         return () => {
             newSocket.disconnect();
+
+            // Cleanup HCE session explicitly on umount
+            if (hceSession) {
+                hceSession.setEnabled(false)
+                    .then(() => console.log('HCE Session disabled on unmount'))
+                    .catch((e: any) => console.error('Error disabling HCE session on unmount:', e));
+            }
         };
     }, [terminal_id]);
+
+    useEffect(() => {
+        return () => {
+            if (hceSession) {
+                hceSession.setEnabled(false)
+                    .then(() => console.log('HCE Session disabled on unmount'))
+                    .catch((e: any) => console.error('Error disabling HCE session on unmount:', e));
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hceSession]);
+
+    // Moved stopNfcBroadcast above where it's used or wrapping in useCallback
+    const stopNfcBroadcast = async () => {
+        try {
+            if (hceSession) {
+                await hceSession.setEnabled(false); // Make invisible to POS readers
+                console.log('NFC broadcast stopped (disabled).');
+            }
+        } catch (error) {
+            console.error('Error stopping NFC broadcast:', error);
+        }
+    };
 
     useEffect(() => {
         let timeout: ReturnType<typeof setTimeout>;
@@ -48,9 +78,47 @@ export default function CryptoPayScreen() {
             timeout = setTimeout(() => {
                 setStep('ready');
             }, 1000); // 1 seconds of processing indicator before showing 'Ready to Pay'
+        } else if (step === 'ready' && paymentData) {
+            // Start NFC broadcast
+            startNfcBroadcast(paymentData);
+        } else if (step === 'completed') {
+            // Stop NFC broadcast once paid
+            stopNfcBroadcast();
         }
         return () => clearTimeout(timeout);
-    }, [step]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, paymentData, hceSession]);
+
+    const startNfcBroadcast = async (data: any) => {
+        try {
+            // Convert payment intent to JSON string
+            const payloadString = JSON.stringify(data);
+
+            // Create a Text NDEF record to send
+            const tag = new NFCTagType4({
+                type: NFCTagType4NDEFContentType.Text,
+                content: payloadString,
+                writable: false
+            });
+
+            const session = await HCESession.getInstance();
+            await session.setApplication(tag);
+            await session.setEnabled(true);
+
+            // On Android, start the listener. The library will register the HCE service.
+            session.on(HCESession.Events.HCE_STATE_CONNECTED, () => {
+                console.log('NFC Reader connected to HCE.');
+            });
+            session.on(HCESession.Events.HCE_STATE_DISCONNECTED, () => {
+                console.log('NFC Reader disconnected from HCE.');
+            });
+
+            console.log('NFC payload broadcast started:', payloadString);
+            setHceSession(session);
+        } catch (error) {
+            console.error('Error starting NFC broadcast:', error);
+        }
+    };
 
     const handlePayPress = () => {
         setStep('processing');
