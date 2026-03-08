@@ -47,7 +47,7 @@ function encodeErc20Transfer(to: string, amountRaw: string): string {
 }
 
 const SERVER_URL = "http://10.104.84.121:3001";
-const ENABLE_DEBUG_FLOW = true;
+const ENABLE_DEBUG_FLOW = false;
 
 type Phase = 'idle' | 'scanning' | 'received' | 'confirm' | 'success';
 
@@ -465,13 +465,15 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: Accent.darkSlate,
+    backgroundColor: '#162033',
+    borderWidth: 2,
+    borderColor: Accent.blue,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: Accent.blue,
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
     elevation: 10,
   },
   orbNfcText: {
