@@ -18,7 +18,7 @@ function ProcessingContent() {
     const name = searchParams.get("name") || "Customer";
     const contact = searchParams.get("contact") || "";
     const SOCKET_URL = 'http://10.104.84.121:3001';
-
+    const terminal_id = "term_01"; // Default terminal ID for demonstration
     useEffect(() => {
         // Initialize socket connection
         const newSocket = io(SOCKET_URL);
@@ -32,7 +32,7 @@ function ProcessingContent() {
         return () => {
             newSocket.disconnect();
         };
-    }, []);
+    }, [terminal_id]);
 
     if (status === "completed") {
         return (
