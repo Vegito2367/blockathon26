@@ -13,8 +13,9 @@ export function SiteLayoutWrapper({
 }) {
   const pathname = usePathname();
   const isStableAid = pathname?.startsWith('/stableaid');
+  const isEcosystem = pathname?.startsWith('/Ecosystem');
 
-  if (isStableAid) {
+  if (isStableAid || isEcosystem) {
     return <>{children}</>;
   }
 

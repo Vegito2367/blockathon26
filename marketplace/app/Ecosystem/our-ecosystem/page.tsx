@@ -1,8 +1,6 @@
+'use client'
 import { ArrowRight, Smartphone, ShieldCheck, Send, RefreshCw, Landmark } from "lucide-react";
-
-export const metadata = {
-    title: "Our Ecosystem | Ripple",
-};
+import { useRouter } from "next/navigation";
 
 const products = [
     {
@@ -12,7 +10,8 @@ const products = [
         description: "Transform any mobile device into a powerful point-of-sale terminal. Accept crypto payments just like standard contactless cards with instant settlement and negligible fees.",
         icon: Smartphone,
         image: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=1000&auto=format&fit=crop",
-        color: "from-emerald-500 to-teal-400"
+        color: "from-emerald-500 to-teal-400",
+        link: "/"
     },
     {
         id: "stableaid",
@@ -21,7 +20,8 @@ const products = [
         description: "A radical transparency module that ensures every decimal of a donation reaches its intended destination without administrative leakage. It leverages immutable ledgers to give donors real-time proof of impact and verified fund routing.",
         icon: ShieldCheck,
         image: "/charity.jpg",
-        color: "from-blue-500 to-cyan-400"
+        color: "from-blue-500 to-cyan-400",
+        link: "/stableaid"
     },
     {
         id: "p2p",
@@ -30,7 +30,8 @@ const products = [
         description: "Send value anywhere to person in your contact instantly using just a phone number or email. Forget complex wallet addresses. Fast, free, and secure peer-to-peer crypto transfers.",
         icon: Send,
         image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1000&auto=format&fit=crop",
-        color: "from-purple-500 to-pink-400"
+        color: "from-purple-500 to-pink-400",
+        link: "<nolink>"
     },
     {
         id: "forex",
@@ -39,7 +40,8 @@ const products = [
         description: "A borderless liquidity engine that dissolves traditional banking delays and high conversion fees. It enables the instant, frictionless flow of value across global jurisdictions using unified digital ledger technology.",
         icon: RefreshCw,
         image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1000&auto=format&fit=crop",
-        color: "from-orange-500 to-amber-400"
+        color: "from-orange-500 to-amber-400",
+        link: "<nolink>"
     },
     {
         id: "loans",
@@ -48,11 +50,13 @@ const products = [
         description: "DeFi-powered lending pools that allow users to unlock instant liquidity by collateralizing their digital assets. These smart-contract-driven credit lines eliminate the need for traditional credit scores or predatory middleman approvals.",
         icon: Landmark,
         image: "https://images.unsplash.com/photo-1579621970795-87facc2f976d?q=80&w=1000&auto=format&fit=crop",
-        color: "from-indigo-500 to-blue-500"
+        color: "from-indigo-500 to-blue-500",
+        link: "<nolink>"
     }
 ];
 
 export default function OurEcosystem() {
+    const router = useRouter();
     return (
         <main className="min-h-screen bg-[#020617] text-white pt-10">
             {/* Ecosystem Hero */}
@@ -96,7 +100,7 @@ export default function OurEcosystem() {
                                         <p className="text-lg text-gray-400 mb-8 leading-relaxed">
                                             {product.description}
                                         </p>
-                                        <button className="flex items-center gap-2 text-white font-medium hover:text-blue-400 transition-colors group">
+                                        <button onClick={() => { router.push(product.link) }} className="flex items-center gap-2 text-white font-medium hover:text-blue-400 transition-colors group cursor-pointer">
                                             Learn more <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                                         </button>
                                     </div>
