@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 50,
     paddingBottom: 12,
   },
   logo: {
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   balanceAmount: {
-    fontSize: 40,
+    fontSize: 20,
     fontWeight: '800',
     color: '#f8fafc',
     marginVertical: 4,
