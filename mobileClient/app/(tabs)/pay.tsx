@@ -183,11 +183,18 @@ export default function NfcReceiver() {
           to: payload.tokenAddress,
           data: data,
           value: '0x0',
+          gas: '0x1D4C0'
         }],
-      }, `eip155:${payload.chainId}`);
+      });
 
       console.log('Transaction sent:', txHash);
       setTxHash(txHash);
+
+      fetch(`${SERVER_URL}/api/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txHash, terminal_id: 'term_01' }), 
+      }).catch(err => console.warn('Verify call failed:', err));
       Alert.alert('Payment Sent!', `TX: ${txHash}`);
     } catch (error: any) {
       console.error('Transaction error:', error);

@@ -34,6 +34,7 @@ if (!MERCHANT_WALLET) {
 const ethClient = createPublicClient({
   chain: baseSepolia,
   transport: http(process.env.BASE_SEPOLIA_RPC_URL || undefined),
+  pollingInterval: 1_000
 });
 
 // --- SESSION STORE ---
@@ -122,51 +123,59 @@ app.get('/api/health', (_req, res) => {
 //    Watches for RLUSD (USDC) Transfer events
 //    TO the merchant wallet on Base Sepolia
 // ─────────────────────────────────────────────
-ethClient.watchEvent({
-  address: RLUSD_TOKEN_ADDRESS,
-  event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)'),
-  args: { to: MERCHANT_WALLET },
-  onLogs: async (logs) => {
-    for (const log of logs) {
-      const txHash = log.transactionHash;
-      const receivedRaw = log.args.value?.toString();
 
-      console.log(`[Base Sepolia] RLUSD Transfer detected → tx: ${txHash}`);
+// ─────────────────────────────────────────────
+// NEW: VERIFY PAYMENT BY TX HASH
+// ─────────────────────────────────────────────
+app.post('/api/verify-payment', async (req, res) => {
+  const { txHash, terminal_id } = req.body;
 
-      // Find all PENDING sessions for this merchant
-      const terminalIds = pendingTerminalsForMerchant(MERCHANT_WALLET);
+  if (!txHash || !terminal_id) {
+    return res.status(400).json({ error: "Missing txHash or terminal_id" });
+  }
 
-      for (const terminalId of terminalIds) {
-        const session = activeSessions.get(terminalId);
-        if (!session || session.status !== 'PENDING') continue;
+  const session = activeSessions.get(terminal_id);
+  if (!session || session.status !== 'PENDING') {
+    return res.status(404).json({ error: "No pending session for this terminal" });
+  }
 
-        // Optional: verify the amount matches (tolerance‑free for demo)
-        if (receivedRaw && receivedRaw !== session.rawAmount) {
-          console.log(`[Base Sepolia] Amount mismatch for ${terminalId}: expected ${session.rawAmount}, got ${receivedRaw}`);
-          continue;
-        }
+  try {
+    const receipt = await ethClient.waitForTransactionReceipt({ hash: txHash, timeout: 60_000 });
 
-        // Mark as completed immediately (direct settlement — one hop)
-        session.status = 'COMPLETED';
-        session.txHash = txHash;
-
-        console.log(`[Success] terminal=${terminalId} | tx=${txHash}`);
-
-        // Notify both the Laptop Kiosk (Device A) and the Android POS (Device B)
-        io.to(terminalId).emit('payment_success', {
-          amount: session.amount_usd,
-          txHash,
-          explorerUrl: `https://sepolia.basescan.org/tx/${txHash}`,
-        });
-
-        // Clean up after 5 minutes
-        setTimeout(() => activeSessions.delete(terminalId), 300_000);
-
-        // Only match one session per transfer
-        break;
-      }
+    if (receipt.status !== 'success') {
+      return res.status(400).json({ error: "Transaction reverted" });
     }
-  },
+
+    // Parse Transfer logs from the receipt
+    const transferEventSig = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+    const transferLog = receipt.logs.find(log =>
+      log.address.toLowerCase() === RLUSD_TOKEN_ADDRESS.toLowerCase() &&
+      log.topics[0] === transferEventSig &&
+      log.topics[2] && ('0x' + log.topics[2].slice(26)).toLowerCase() === MERCHANT_WALLET.toLowerCase()
+    );
+
+    if (!transferLog) {
+      return res.status(400).json({ error: "No matching RLUSD transfer to merchant found in tx" });
+    }
+
+    session.status = 'COMPLETED';
+    session.txHash = txHash;
+
+    console.log(`[Verified] terminal=${terminal_id} | tx=${txHash}`);
+
+    io.to(terminal_id).emit('payment_success', {
+      amount: session.amount_usd,
+      txHash,
+      explorerUrl: `https://sepolia.basescan.org/tx/${txHash}`,
+    });
+
+    setTimeout(() => activeSessions.delete(terminal_id), 300_000);
+
+    res.json({ success: true, txHash });
+  } catch (error) {
+    console.error('[Verify] Error:', error.message);
+    res.status(500).json({ error: "Failed to verify transaction" });
+  }
 });
 
 // ─────────────────────────────────────────────
