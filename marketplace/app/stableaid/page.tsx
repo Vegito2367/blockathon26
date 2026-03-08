@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { 
-  ShieldCheck, 
-  Upload, 
-  Banknote, 
-  CheckCircle2, 
-  FileCheck, 
-  Loader2, 
+import {
+  ShieldCheck,
+  Upload,
+  Banknote,
+  CheckCircle2,
+  FileCheck,
+  Loader2,
   ExternalLink,
   Wallet
 } from 'lucide-react';
@@ -75,20 +75,20 @@ export default function StableAidDashboard() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const uploadRes = await fetch('/api/uploadAid', {
         method: 'POST',
         body: formData,
       });
       const uploadData = await uploadRes.json();
-      
+
       if (uploadData.success) {
         await fetch(`/api/cases/${selectedCaseId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             cid: uploadData.ipfsHash,
-            beneficiaryWalletAddress 
+            beneficiaryWalletAddress
           })
         });
         setFile(null);
@@ -129,10 +129,10 @@ export default function StableAidDashboard() {
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-teal-100 to-teal-400 bg-clip-text text-transparent">
-              StableAid
+              NexusAID
             </h1>
           </div>
-          <button 
+          <button
             onClick={fetchCases}
             disabled={refreshing}
             className="text-sm px-4 py-2 rounded-full border border-neutral-700 hover:border-teal-500/50 hover:bg-teal-500/10 transition-all flex items-center gap-2"
@@ -148,22 +148,20 @@ export default function StableAidDashboard() {
           <div className="inline-flex p-1 bg-neutral-800/50 rounded-2xl border border-neutral-700/50 backdrop-blur-sm">
             <button
               onClick={() => setActiveTab('admin')}
-              className={`px-8 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
-                activeTab === 'admin' 
-                ? 'bg-neutral-800 text-teal-400 shadow-md border border-neutral-700' 
+              className={`px-8 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'admin'
+                ? 'bg-neutral-800 text-teal-400 shadow-md border border-neutral-700'
                 : 'text-neutral-400 hover:text-neutral-200'
-              }`}
+                }`}
             >
               <ShieldCheck className="w-5 h-5" />
               NGO Admin
             </button>
             <button
               onClick={() => setActiveTab('beneficiary')}
-              className={`px-8 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
-                activeTab === 'beneficiary' 
-                ? 'bg-neutral-800 text-emerald-400 shadow-md border border-neutral-700' 
+              className={`px-8 py-3 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'beneficiary'
+                ? 'bg-neutral-800 text-emerald-400 shadow-md border border-neutral-700'
                 : 'text-neutral-400 hover:text-neutral-200'
-              }`}
+                }`}
             >
               <FileCheck className="w-5 h-5" />
               Beneficiary View
@@ -320,18 +318,18 @@ export default function StableAidDashboard() {
                     </td>
                     <td className="px-8 py-5">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border
-                        ${c.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
-                          c.status === 'Proof Uploaded' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
-                          'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
+                        ${c.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                          c.status === 'Proof Uploaded' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                            'bg-amber-500/10 text-amber-400 border-amber-500/20'}`}>
                         {c.status === 'Paid' && <CheckCircle2 className="w-3.5 h-3.5" />}
                         {c.status}
                       </span>
                     </td>
                     <td className="px-8 py-5 font-mono text-xs">
                       {c.cid ? (
-                        <a 
-                          href={`https://gray-implicit-dingo-846.mypinata.cloud/ipfs/${c.cid}`} 
-                          target="_blank" 
+                        <a
+                          href={`https://gray-implicit-dingo-846.mypinata.cloud/ipfs/${c.cid}`}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-teal-400 hover:text-teal-300 flex items-center gap-1.5"
                         >
@@ -344,9 +342,9 @@ export default function StableAidDashboard() {
                     </td>
                     <td className="px-8 py-5 font-mono text-xs">
                       {c.txHash ? (
-                        <a 
-                          href={`https://testnet.xrpl.org/transactions/${c.txHash}`} 
-                          target="_blank" 
+                        <a
+                          href={`https://testnet.xrpl.org/transactions/${c.txHash}`}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5"
                         >
