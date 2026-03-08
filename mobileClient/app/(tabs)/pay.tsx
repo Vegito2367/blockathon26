@@ -78,6 +78,7 @@ export default function NfcReceiver() {
       } catch (e) {
         console.warn('NFC start error:', e);
       }
+      await NfcManager.start();
     };
 
     initNfc();
@@ -137,10 +138,27 @@ export default function NfcReceiver() {
     }
   };
 
-  const cancelScan = async () => {
-    await NfcManager.cancelTechnologyRequest();
+        NfcManager.unregisterTagEvent();
+        setIsScanning(false);
+        resolve();
+      });
+
+      NfcManager.registerTagEvent();
+    });
+  } catch (ex: any) {
+    const msg = ex?.message || '';
+    if (!msg.includes('cancelled')) {
+      Alert.alert('NFC Error', msg || 'Failed to read NFC tag');
+    }
+    console.log(JSON.stringify(ex, Object.getOwnPropertyNames(ex), 2));
     setIsScanning(false);
-  };
+  }
+};
+
+const cancelScan = async () => {
+  NfcManager.unregisterTagEvent();
+  setIsScanning(false);
+};
 
   return (
     <View style={styles.container}>
