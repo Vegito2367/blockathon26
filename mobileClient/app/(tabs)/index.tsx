@@ -1,11 +1,26 @@
-import React, { useEffect, useState } from 'react'
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Dimensions, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import Animated, {
+  cancelAnimation,
+  Easing,
+  FadeIn,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
+import * as Haptics from 'expo-haptics'
 import ConnectButton from '@/components/connectbutton'
 import { useAccount } from '@reown/appkit-react-native'
+import { Accent } from '@/constants/theme'
 
 const BASE_SEPOLIA_RPC = 'https://sepolia.base.org'
 const TOKEN_ADDRESS = '0xbD84621010fF42EB5bF72872BE6ec6FE67Db546f'
-const TOKEN_DECIMALS = 18 // match your token
+const TOKEN_DECIMALS = 18
 async function fetchTokenBalance(address: string): Promise<string> {
   const data = '0x70a08231' + address.slice(2).toLowerCase().padStart(64, '0')
   const res = await fetch(BASE_SEPOLIA_RPC, {
@@ -20,7 +35,7 @@ async function fetchTokenBalance(address: string): Promise<string> {
   const json = await res.json()
   if (!json?.result || json.result === '0x') return '0'
   const raw = BigInt(json.result)
-  return (Number(raw) / 10 ** TOKEN_DECIMALS).toFixed(4)
+  return (Number(raw) / 10 ** TOKEN_DECIMALS).toFixed(2)
 }
 
 function shortenAddress(addr: string) {
@@ -28,69 +43,242 @@ function shortenAddress(addr: string) {
   return `${raw.slice(0, 6)}...${raw.slice(-4)}`
 }
 
+/* ── Pulsing Ring (reanimated) ────────────────────────────── */
+const PulseRing = ({ delay, color, duration = 2400 }: { delay: number; color: string; duration?: number }) => {
+  const scale = useSharedValue(0.5)
+  const opacity = useSharedValue(0.7)
+
+  useEffect(() => {
+    const ease = Easing.out(Easing.quad)
+    scale.value = withDelay(delay, withRepeat(withTiming(3, { duration, easing: ease }), -1, false))
+    opacity.value = withDelay(delay, withRepeat(withTiming(0, { duration, easing: ease }), -1, false))
+    return () => { cancelAnimation(scale); cancelAnimation(opacity) }
+  }, [delay, duration])
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }))
+
+  return <Animated.View style={[styles.pulseRing, { borderColor: color }, style]} />
+}
+
+/* ── Breathing Dot ────────────────────────────────────────── */
+const BreathingDot = ({ color, size = 8 }: { color: string; size?: number }) => {
+  const opacity = useSharedValue(1)
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.3, { duration: 1000 }),
+        withTiming(1, { duration: 1000 }),
+      ), -1, true,
+    )
+    return () => cancelAnimation(opacity)
+  }, [])
+
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }))
+
+  return (
+    <Animated.View
+      style={[
+        { width: size, height: size, borderRadius: size / 2, backgroundColor: color },
+        style,
+      ]}
+    />
+  )
+}
+
+/* ── Full-screen Wipe Transition ──────────────────────────── */
+const TransitionWipe = ({ onDone }: { onDone: () => void }) => {
+  const s1 = useSharedValue(0)
+  const s2 = useSharedValue(0)
+  const s3 = useSharedValue(0)
+  const o1 = useSharedValue(1)
+  const o2 = useSharedValue(1)
+  const o3 = useSharedValue(1)
+
+  useEffect(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    const dur = 575
+    s1.value = withTiming(40, { duration: dur })
+    s2.value = withDelay(230, withTiming(40, { duration: dur }))
+    s3.value = withDelay(460, withTiming(40, { duration: dur }))
+
+    o1.value = withDelay(690, withTiming(0, { duration: 345 }))
+    o2.value = withDelay(805, withTiming(0, { duration: 345 }))
+    o3.value = withDelay(920, withTiming(0, { duration: 345 }, () => {
+      runOnJS(onDone)()
+    }))
+  }, [])
+
+  const c1 = useAnimatedStyle(() => ({ transform: [{ scale: s1.value }], opacity: o1.value }))
+  const c2 = useAnimatedStyle(() => ({ transform: [{ scale: s2.value }], opacity: o2.value }))
+  const c3 = useAnimatedStyle(() => ({ transform: [{ scale: s3.value }], opacity: o3.value }))
+
+  const circle = { position: 'absolute' as const, width: 60, height: 60, borderRadius: 30 }
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Animated.View style={[circle, { backgroundColor: Accent.darkSlate }, c1]} />
+        <Animated.View style={[circle, { backgroundColor: Accent.purple }, c2]} />
+        <Animated.View style={[circle, { backgroundColor: Accent.blue }, c3]} />
+      </View>
+    </View>
+  )
+}
+
+/* ── Balance Orb ──────────────────────────────────────────── */
+const BalanceOrb = ({ balance, loading }: { balance: string | null; loading: boolean }) => {
+  const orbScale = useSharedValue(0.9)
+  const textOpacity = useSharedValue(0)
+
+  useEffect(() => {
+    if (!loading && balance !== null) {
+      orbScale.value = withSpring(1, { damping: 12, stiffness: 120 })
+      textOpacity.value = withTiming(1, { duration: 400 })
+    } else {
+      orbScale.value = withTiming(0.9, { duration: 200 })
+      textOpacity.value = withTiming(0, { duration: 200 })
+    }
+  }, [loading, balance])
+
+  const orbStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: orbScale.value }],
+  }))
+
+  const textStyle = useAnimatedStyle(() => ({
+    opacity: textOpacity.value,
+  }))
+
+  return (
+    <View style={styles.orbContainer}>
+      {loading && (
+        <View style={StyleSheet.absoluteFill}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+              <PulseRing delay={i * 600} color={Accent.blue} />
+            </View>
+          ))}
+        </View>
+      )}
+
+      <Animated.View style={[styles.orbCircle, orbStyle]}>
+        {loading ? (
+          <Text style={styles.orbLoadingText}>...</Text>
+        ) : (
+          <Animated.View style={[{ alignItems: 'center' }, textStyle]}>
+            <Text style={styles.orbBalance}>{balance ?? '0'}</Text>
+            <Text style={styles.orbCurrency}>RLUSD</Text>
+          </Animated.View>
+        )}
+      </Animated.View>
+    </View>
+  )
+}
+
+/* ── Disconnected Hero with breathing rings ───────────────── */
+const DisconnectedHero = () => (
+  <View style={styles.heroSection}>
+    <View style={styles.heroOrbWrap}>
+      <View style={StyleSheet.absoluteFill}>
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+            <PulseRing delay={i * 800} color={Accent.muted} duration={3000} />
+          </View>
+        ))}
+      </View>
+      <View style={styles.heroIconCircle}>
+        <Text style={styles.iconEmoji}>💳</Text>
+      </View>
+    </View>
+    <Text style={styles.heroTitle}>Connect Your Wallet</Text>
+    <Text style={styles.heroDescription}>
+      Link your wallet to view your Base Sepolia RLUSD balance and start transacting.
+    </Text>
+    <View style={styles.connectWrapper}>
+      <ConnectButton />
+    </View>
+  </View>
+)
+
+/* ── Main Screen ──────────────────────────────────────────── */
 export default function HomeScreen() {
   const { address, isConnected } = useAccount()
   const [balance, setBalance] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [showWipe, setShowWipe] = useState(false)
+  const [wipeComplete, setWipeComplete] = useState(false)
+  const prevConnected = useRef(false)
+
+  const balanceBounce = useSharedValue(1)
+  const balanceBounceStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: balanceBounce.value }],
+  }))
+
+  const doFetch = useCallback((isRefresh = false) => {
+    if (!isConnected || !address) { setBalance(null); return }
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+    const raw = address.includes(':') ? address.split(':').pop()! : address
+    fetchTokenBalance(raw)
+      .then((b) => { setBalance(b) })
+      .catch(() => { setBalance(null) })
+      .finally(() => {
+        setLoading(false)
+        setRefreshing(false)
+        if (isRefresh) {
+          balanceBounce.value = withSequence(
+            withTiming(1.06, { duration: 150 }),
+            withSpring(1, { damping: 10 }),
+          )
+        }
+      })
+  }, [isConnected, address])
+
+  useEffect(() => { doFetch() }, [isConnected, address])
 
   useEffect(() => {
-    if (!isConnected || !address) {
-      setBalance(null)
-      return
+    if (isConnected && !prevConnected.current) {
+      setShowWipe(true)
+      setWipeComplete(false)
     }
-
-    let cancelled = false
-    setLoading(true)
-
-    const raw = address.includes(':') ? address.split(':').pop()! : address
-
-    fetchTokenBalance(raw)
-      .then((b) => { if (!cancelled) setBalance(b) })
-      .catch(() => { if (!cancelled) setBalance(null) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-
-    return () => { cancelled = true }
-  }, [isConnected, address])
+    prevConnected.current = isConnected
+  }, [isConnected])
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.logo}>CryptoPay</Text>
         <Text style={styles.subtitle}>Base Sepolia</Text>
       </View>
 
       {!isConnected ? (
-        <View style={styles.heroSection}>
-          <View style={styles.iconCircle}>
-            <Text style={styles.iconEmoji}>💳</Text>
-          </View>
-          <Text style={styles.heroTitle}>Connect Your Wallet</Text>
-          <Text style={styles.heroDescription}>
-            Link your wallet to view your Base Sepolia RLUSD balance and start transacting.
-          </Text>
-          <View style={styles.connectWrapper}>
-            <ConnectButton />
-          </View>
-        </View>
+        <DisconnectedHero />
       ) : (
-        <View style={styles.content}>
-          {/* Balance Card */}
-          <View style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>Available Balance</Text>
-            {loading ? (
-              <ActivityIndicator size="large" color="#6366f1" style={{ marginVertical: 12 }} />
-            ) : (
-              <Text style={styles.balanceAmount}>{balance ?? '0'} <Text style={styles.balanceCurrency}>RLUSD</Text></Text>
-            )}
-            <View style={styles.networkBadge}>
-              <View style={styles.networkDot} />
-              <Text style={styles.networkText}>Base Sepolia</Text>
-            </View>
-          </View>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => doFetch(true)}
+              tintColor={Accent.blue}
+            />
+          }
+        >
+          <Animated.View entering={FadeIn.duration(500)} style={balanceBounceStyle}>
+            <BalanceOrb balance={balance} loading={loading} />
+          </Animated.View>
 
-          {/* Wallet Info Card */}
-          <View style={styles.infoCard}>
+          <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.networkBadge}>
+            <BreathingDot color={Accent.purple} />
+            <Text style={styles.networkText}>Base Sepolia</Text>
+          </Animated.View>
+
+          <Animated.View entering={FadeIn.delay(350).duration(400)} style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Wallet</Text>
               <Text style={styles.infoValue}>{address ? shortenAddress(address) : '—'}</Text>
@@ -99,17 +287,20 @@ export default function HomeScreen() {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Status</Text>
               <View style={styles.statusRow}>
-                <View style={styles.statusDot} />
+                <BreathingDot color={Accent.green} />
                 <Text style={styles.statusText}>Connected</Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
 
-          {/* Disconnect */}
-          <View style={styles.disconnectWrapper}>
+          <Animated.View entering={FadeIn.delay(500).duration(400)} style={styles.disconnectWrapper}>
             <ConnectButton />
-          </View>
-        </View>
+          </Animated.View>
+        </ScrollView>
+      )}
+
+      {showWipe && !wipeComplete && (
+        <TransitionWipe onDone={() => { setWipeComplete(true); setShowWipe(false) }} />
       )}
     </SafeAreaView>
   )
@@ -118,7 +309,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Accent.surface,
   },
   header: {
     paddingHorizontal: 24,
@@ -128,30 +319,41 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#f8fafc',
+    color: Accent.textPrimary,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: Accent.textTertiary,
     marginTop: 2,
   },
-
-  // Disconnected hero
+  pulseRing: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+  },
   heroSection: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
   },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#1e293b',
+  heroOrbWrap: {
+    width: 160,
+    height: 160,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  heroIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Accent.card,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   iconEmoji: {
     fontSize: 36,
@@ -165,7 +367,7 @@ const styles = StyleSheet.create({
   },
   heroDescription: {
     fontSize: 15,
-    color: '#94a3b8',
+    color: Accent.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 32,
@@ -173,63 +375,66 @@ const styles = StyleSheet.create({
   connectWrapper: {
     width: '100%',
   },
-
-  // Connected content
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 8,
   },
-  balanceCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    padding: 24,
+  orbContainer: {
+    alignSelf: 'center',
+    width: 200,
+    height: 200,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginVertical: 16,
   },
-  balanceLabel: {
-    fontSize: 13,
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
+  orbCircle: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: Accent.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Accent.blue,
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
   },
-  balanceAmount: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#f8fafc',
-    marginVertical: 4,
-  },
-  balanceCurrency: {
-    fontSize: 20,
+  orbLoadingText: {
+    fontSize: 28,
+    color: Accent.textSecondary,
     fontWeight: '600',
-    color: '#64748b',
+  },
+  orbBalance: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Accent.textPrimary,
+  },
+  orbCurrency: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Accent.textTertiary,
+    marginTop: 2,
   },
   networkBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#334155',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    alignSelf: 'center',
+    backgroundColor: Accent.muted,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
-    marginTop: 12,
-  },
-  networkDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#a78bfa',
-    marginRight: 6,
+    marginBottom: 20,
+    gap: 8,
   },
   networkText: {
     fontSize: 12,
     color: '#cbd5e1',
     fontWeight: '600',
   },
-
-  // Info card
   infoCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Accent.card,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -242,7 +447,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: Accent.textSecondary,
   },
   infoValue: {
     fontSize: 14,
@@ -252,24 +457,18 @@ const styles = StyleSheet.create({
   },
   infoDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#334155',
+    backgroundColor: Accent.muted,
     marginVertical: 4,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#34d399',
-    marginRight: 6,
+    gap: 6,
   },
   statusText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#34d399',
+    color: Accent.green,
   },
   disconnectWrapper: {
     marginTop: 8,
