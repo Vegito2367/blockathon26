@@ -197,7 +197,6 @@ export default function NfcReceiver() {
     }
   };
 
-  async function sendMessageToBackend
 
   return (
     <View style={styles.container}>
