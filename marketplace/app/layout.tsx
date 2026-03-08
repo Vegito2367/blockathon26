@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./components/Providers";
-import { LayoutWrapper } from "./components/LayoutWrapper";
+import { SiteLayoutWrapper } from "./components/SiteLayoutWrapper";
+
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -45,12 +46,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body
-        className={`${inter.variable} ${playfair.variable} font-sans antialiased bg-[#fdfbfb] text-[#1a1a1a] flex flex-col min-h-screen`}
+        className={`${inter.variable} ${playfair.variable} font-sans antialiased flex flex-col min-h-screen`}
       >
         <Providers>
-          <LayoutWrapper Footer={<Footer />}>
+          <SiteLayoutWrapper footer={<Footer />}>
             {children}
-          </LayoutWrapper>
+          </SiteLayoutWrapper>
         </Providers>
       </body>
     </html>
