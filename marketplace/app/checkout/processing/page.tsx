@@ -24,12 +24,13 @@ function ProcessingContent() {
         const newSocket = io(SOCKET_URL);
 
         newSocket.on('payment_success', (data) => {
+            //0x7345eb99d8429ebce1d9ff64c38cb84832c8bbeaee5da5e0594e620b9e2bd447
+            console.log('Payment successful:', data);
             setStatus("completed");
         });
 
         return () => {
             newSocket.disconnect();
-
         };
     }, []);
 
