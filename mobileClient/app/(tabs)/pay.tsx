@@ -138,22 +138,6 @@ export default function NfcReceiver() {
     }
   };
 
-        NfcManager.unregisterTagEvent();
-        setIsScanning(false);
-        resolve();
-      });
-
-      NfcManager.registerTagEvent();
-    });
-  } catch (ex: any) {
-    const msg = ex?.message || '';
-    if (!msg.includes('cancelled')) {
-      Alert.alert('NFC Error', msg || 'Failed to read NFC tag');
-    }
-    console.log(JSON.stringify(ex, Object.getOwnPropertyNames(ex), 2));
-    setIsScanning(false);
-  }
-};
 
 const cancelScan = async () => {
   NfcManager.unregisterTagEvent();
