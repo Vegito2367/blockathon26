@@ -3,10 +3,10 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 const CATEGORIES = [
-  { id: "croissants", name: "Croissants", image: "https://images.unsplash.com/photo-1549903072-7e6e0d234247?w=1080&q=80", link: "/menu#croissants" },
-  { id: "cakes", name: "Cakes", image: "/images/cakes_category.jpg", link: "/menu#cakes" },
-  { id: "cupcakes", name: "Cupcakes", image: "/images/cupcakes_category.jpg", link: "/menu#cupcakes" },
-  { id: "breads", name: "Artisan Breads", image: "/images/breads_category.jpg", link: "/menu#breads" },
+  { id: "breads", name: "Artisan Breads", image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1080&q=80", link: "/menu#breads" },
+  { id: "cakes", name: "Cakes", image: "https://images.unsplash.com/photo-1588195538326-c5b1e9f80a1b?w=1080&q=80", link: "/menu#cakes" },
+  { id: "pastries", name: "Pastries", image: "https://images.unsplash.com/photo-1623334044303-241021148842?w=1080&q=80", link: "/menu#pastries" },
+  { id: "drinks", name: "Drinks", image: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=1080&q=80", link: "/menu#drinks" },
 ];
 
 export default function Home() {
@@ -15,19 +15,20 @@ export default function Home() {
       <section className="relative h-[80vh] w-full flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0 bg-black">
           <Image
-            src="https://images.unsplash.com/photo-1555507036-ab1f40ce88cb?w=1080&q=80"
-            alt="Freshly baked artisan bread"
-            layout="fill"
-            objectFit="cover"
+            src="https://images.unsplash.com/photo-1598373182133-52452f7691ef?w=1080&q=80"
+            alt="Baker preparing dough"
+            fill
             priority
-            className="opacity-40 transform hover:scale-105 transition-transform duration-[20s] ease-out"
+            className="object-cover opacity-50 transform hover:scale-105 transition-transform duration-[20s] ease-out"
           />
+          {/* Dark overlay for better text contrast */}
+          <div className="absolute inset-0 bg-black/40"></div>
         </div>
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto flex flex-col items-center">
-          <h1 className="font-playfair text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight drop-shadow-xl text-center">
+          <h1 className="font-playfair text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight drop-shadow-2xl text-center">
             Baked with Joy, <br /> Served with Love.
           </h1>
-          <p className="text-lg md:text-2xl text-white/90 mb-10 max-w-2xl font-light drop-shadow-lg text-center bg-black/20 p-4 rounded-xl backdrop-blur-sm">
+          <p className="text-lg md:text-2xl text-white/95 mb-10 max-w-2xl font-light drop-shadow-xl text-center bg-black/30 p-4 rounded-xl backdrop-blur-sm">
             Experience the rich tradition of artisan baking. Fresh pastries, rustic breads, and fine cakes made daily from scratch.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
@@ -63,9 +64,8 @@ export default function Home() {
               <Image
                 src={cat.image}
                 alt={cat.name}
-                layout="fill"
-                objectFit="cover"
-                className="group-hover:scale-110 transition-transform duration-700 ease-in-out"
+                fill
+                className="object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
               <div className="absolute inset-0 p-6 flex flex-col justify-end">
