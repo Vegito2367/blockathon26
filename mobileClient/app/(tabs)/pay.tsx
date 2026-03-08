@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Alert, 
-  ScrollView, 
-  Animated, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  Animated,
   Easing,
   Dimensions
 } from 'react-native';
@@ -69,9 +69,14 @@ export default function NfcReceiver() {
 
   useEffect(() => {
     const initNfc = async () => {
-      const supported = await NfcManager.isSupported();
-      if (!supported) {
-        Alert.alert('NFC Error', 'NFC is not supported on this device');
+      try {
+        await NfcManager.start();
+        const supported = await NfcManager.isSupported();
+        if (!supported) {
+          Alert.alert('NFC Error', 'NFC is not supported on this device');
+        }
+      } catch (e) {
+        console.warn('NFC start error:', e);
       }
     };
     initNfc();
@@ -84,27 +89,108 @@ export default function NfcReceiver() {
     try {
       setIsScanning(true);
       setPayload(null); // Clear previous data
-      
-      await NfcManager.requestTechnology(NfcTech.Ndef);
-      const tag = await NfcManager.getTag();
-      
-      if (tag && tag.ndefMessage && tag.ndefMessage.length > 0) {
-        const ndefRecord = tag.ndefMessage[0];
-        const text = Ndef.text.decodePayload(ndefRecord.payload as unknown as Uint8Array);
-        const data: RLUSDPaymentPayload = JSON.parse(text);
-        console.log('NFC Tag Data:', data);
-        if (data.type === 'RLUSD_PAY') {
-          setPayload(data);
-        } else {
-          Alert.alert('Invalid Tag', 'This is not an RLUSD payment tag.');
+
+      // Attempt to read as NDEF first (works for physical NDEF tags usually)
+      try {
+        await NfcManager.requestTechnology(NfcTech.Ndef);
+        const tag = await NfcManager.getTag();
+
+        if (tag && tag.ndefMessage && tag.ndefMessage.length > 0) {
+          const ndefRecord = tag.ndefMessage[0];
+          const text = Ndef.text.decodePayload(ndefRecord.payload as unknown as Uint8Array);
+          const data: RLUSDPaymentPayload = JSON.parse(text);
+          console.log('NFC Tag Data (NDEF Mode):', data);
+          if (data.type === 'RLUSD_PAY') {
+            setPayload(data);
+            return; // Success, exit function
+          } else {
+            Alert.alert('Invalid Tag', 'This is not an RLUSD payment tag.');
+            return;
+          }
+        }
+      } catch (ndefErr) {
+        console.log('NDEF read failed, falling back to IsoDep...', ndefErr);
+        // Don't cancel tech request yet, we'll try IsoDep
+      }
+
+      // If NDEF failed (common when reading another phone using HCE), Try IsoDep
+      await NfcManager.cancelTechnologyRequest(); // Reset before trying new tech
+      await NfcManager.requestTechnology(NfcTech.IsoDep);
+
+      // APDU Commands to select NDEF application and read data
+      // 1. Select NDEF Application (D2760000850101)
+      const selectAppCmd = [0x00, 0xA4, 0x04, 0x00, 0x07, 0xD2, 0x76, 0x00, 0x00, 0x85, 0x01, 0x01, 0x00];
+      await NfcManager.transceive(selectAppCmd);
+
+      // 2. Select Capability Container (CC) file (E103)
+      const selectCcCmd = [0x00, 0xA4, 0x00, 0x0C, 0x02, 0xE1, 0x03];
+      await NfcManager.transceive(selectCcCmd);
+
+      // 3. Read CC File to find NDEF file ID (Usually E104) -> Not strictly necessary if we assume standard E104
+      // const readCcCmd = [0x00, 0xB0, 0x00, 0x00, 0x0F];
+      // const ccData = await NfcManager.transceive(readCcCmd);
+
+      // 4. Select NDEF Data file (E104)
+      const selectNdefCmd = [0x00, 0xA4, 0x00, 0x0C, 0x02, 0xE1, 0x04];
+      await NfcManager.transceive(selectNdefCmd);
+
+      // 5. Read first 2 bytes to get the length of the NDEF message
+      const readLenCmd = [0x00, 0xB0, 0x00, 0x00, 0x02];
+      const lenData = await NfcManager.transceive(readLenCmd);
+
+      if (lenData && lenData.length >= 2) {
+        const ndefLength = (lenData[0] << 8) | lenData[1];
+
+        if (ndefLength > 0) {
+          // 6. Read the actual NDEF message (offset 2 to skip length bytes)
+          const readDataCmd = [0x00, 0xB0, 0x00, 0x02, ndefLength];
+          const ndefRawData = await NfcManager.transceive(readDataCmd);
+
+          if (ndefRawData) {
+            // Basic parsing of the NDEF text record. 
+            // A standard text record has header bytes (e.g. 0xD1, 0x01, length, type('T'), status, lang('en'))
+            // We'll do a simple string extraction of the JSON part.
+
+            // Convert byte array to string
+            let rawText = '';
+            for (let i = 0; i < ndefRawData.length; i++) {
+              rawText += String.fromCharCode(ndefRawData[i]);
+            }
+
+            // Find the start of the JSON payload. Text records usually have language codes like 'en'. 
+            // JSON starts with '{'
+            const jsonStartIndex = rawText.indexOf('{');
+            if (jsonStartIndex !== -1) {
+              const jsonString = rawText.substring(jsonStartIndex);
+              console.log("Extracted JSON from IsoDep:", jsonString);
+              try {
+                const data: RLUSDPaymentPayload = JSON.parse(jsonString);
+                if (data.type === 'RLUSD_PAY') {
+                  setPayload(data);
+                } else {
+                  Alert.alert('Invalid Tag', 'This is not an RLUSD payment tag.');
+                }
+              } catch (parseErr) {
+                console.error("Failed to parse NDEF payload as JSON", parseErr);
+              }
+            } else {
+              console.error("Could not find JSON payload in NDEF record");
+            }
+          }
         }
       }
+
     } catch (ex) {
       // Don't alert if user cancelled via UI
-        
-        // Option 2: Stringify with all properties
-        console.log(JSON.stringify(ex, Object.getOwnPropertyNames(ex), 2));
-        
+
+      let errorMessage = 'Unknown error';
+      if (ex instanceof Error) {
+        errorMessage = ex.message;
+      } else if (typeof ex === 'string') {
+        errorMessage = ex;
+      }
+      console.log('NFC Read Error:', errorMessage);
+
     } finally {
       NfcManager.cancelTechnologyRequest();
       setIsScanning(false);
@@ -118,7 +204,7 @@ export default function NfcReceiver() {
 
   return (
     <View style={styles.container}>
-      
+
       {/* --- Scanning UI State --- */}
       {isScanning ? (
         <View style={styles.scannerContainer}>
@@ -127,15 +213,15 @@ export default function NfcReceiver() {
             <PulsingRing delay={0} />
             <PulsingRing delay={600} />
             <PulsingRing delay={1200} />
-            
+
             {/* Center Anchor */}
             <View style={styles.centerAnchor}>
               <Text style={styles.nfcIcon}>NFC</Text>
             </View>
           </View>
-          
+
           <Text style={styles.scanningText}>Hold near sender...</Text>
-          
+
           <TouchableOpacity style={styles.cancelButton} onPress={cancelScan}>
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
@@ -152,7 +238,7 @@ export default function NfcReceiver() {
           {payload && (
             <ScrollView style={styles.resultContainer}>
               <Text style={styles.header}>Payment Received</Text>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Amount USD</Text>
                 <Text style={styles.amountValue}>${payload.amountUsd.toFixed(2)}</Text>
@@ -161,13 +247,13 @@ export default function NfcReceiver() {
               <View style={styles.detailBox}>
                 <Text style={styles.detailLabel}>Raw Amount:</Text>
                 <Text style={styles.detailValue}>{payload.amountRaw}</Text>
-                
+
                 <Text style={styles.detailLabel}>Merchant:</Text>
                 <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">{payload.to}</Text>
-                
+
                 <Text style={styles.detailLabel}>Token:</Text>
                 <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">{payload.tokenAddress}</Text>
-                
+
                 <Text style={styles.detailLabel}>Chain ID:</Text>
                 <Text style={styles.detailValue}>{payload.chainId}</Text>
               </View>
