@@ -10,7 +10,8 @@ import {
   Easing,
   Dimensions
 } from 'react-native';
-import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
+import NfcManager, { NfcEvents, Ndef } from 'react-native-nfc-manager';
+
 
 // --- Types ---
 interface RLUSDPaymentPayload {
@@ -72,7 +73,9 @@ export default function NfcReceiver() {
       const supported = await NfcManager.isSupported();
       if (!supported) {
         Alert.alert('NFC Error', 'NFC is not supported on this device');
+        return;
       }
+      await NfcManager.start();
     };
     initNfc();
     return () => {
@@ -80,41 +83,53 @@ export default function NfcReceiver() {
     };
   }, []);
 
-  const readNfc = async () => {
-    try {
-      setIsScanning(true);
-      setPayload(null); // Clear previous data
-      
-      await NfcManager.requestTechnology(NfcTech.Ndef);
-      const tag = await NfcManager.getTag();
-      
-      if (tag && tag.ndefMessage && tag.ndefMessage.length > 0) {
-        const ndefRecord = tag.ndefMessage[0];
-        const text = Ndef.text.decodePayload(ndefRecord.payload as unknown as Uint8Array);
-        const data: RLUSDPaymentPayload = JSON.parse(text);
-        console.log('NFC Tag Data:', data);
-        if (data.type === 'RLUSD_PAY') {
-          setPayload(data);
-        } else {
-          Alert.alert('Invalid Tag', 'This is not an RLUSD payment tag.');
-        }
-      }
-    } catch (ex) {
-      // Don't alert if user cancelled via UI
-        
-        // Option 2: Stringify with all properties
-        console.log(JSON.stringify(ex, Object.getOwnPropertyNames(ex), 2));
-        
-    } finally {
-      NfcManager.cancelTechnologyRequest();
-      setIsScanning(false);
-    }
-  };
+  
+const readNfc = async () => {
+  try {
+    setIsScanning(true);
+    setPayload(null);
 
-  const cancelScan = async () => {
-    await NfcManager.cancelTechnologyRequest();
+    return new Promise<void>((resolve) => {
+      NfcManager.setEventListener(NfcEvents.DiscoverTag, (tag: any) => {
+        console.log('Tag discovered:', JSON.stringify(tag));
+
+        if (tag.ndefMessage && tag.ndefMessage.length > 0) {
+          const ndefRecord = tag.ndefMessage[0];
+          const text = Ndef.text.decodePayload(
+            ndefRecord.payload as unknown as Uint8Array
+          );
+          const data: RLUSDPaymentPayload = JSON.parse(text);
+
+          if (data.type === 'RLUSD_PAY') {
+            setPayload(data);
+          } else {
+            Alert.alert('Invalid Tag', 'Not an RLUSD payment tag.');
+          }
+        } else {
+          Alert.alert('Empty Tag', 'No NDEF message found on tag.');
+        }
+
+        NfcManager.unregisterTagEvent();
+        setIsScanning(false);
+        resolve();
+      });
+
+      NfcManager.registerTagEvent();
+    });
+  } catch (ex: any) {
+    const msg = ex?.message || '';
+    if (!msg.includes('cancelled')) {
+      Alert.alert('NFC Error', msg || 'Failed to read NFC tag');
+    }
+    console.log(JSON.stringify(ex, Object.getOwnPropertyNames(ex), 2));
     setIsScanning(false);
-  };
+  }
+};
+
+const cancelScan = async () => {
+  NfcManager.unregisterTagEvent();
+  setIsScanning(false);
+};
 
   return (
     <View style={styles.container}>
