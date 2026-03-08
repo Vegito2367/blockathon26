@@ -39,16 +39,22 @@ function ProcessingContent() {
 
     async function completeTransaction(){
         setStatus("completed");
-        const upload = await pinata.upload.public.json({
-            items: cart,
-            amount: amount,
-            name: name,
-            contact: contact
-        }).keyvalues(
-            {
-                username: name,
-            }
-        )
+        const response = await fetch("/api/upload",{
+            method: 'POST',
+            body: JSON.stringify({
+                name:name,
+                contact:contact,
+                items:cart,
+                amount: amount
+            })
+        })
+
+        if (!response.ok){
+            alert("ERROR WITH PINATA")
+            const data = await response.json()
+
+            console.log(data)
+        }
         
     }
 
