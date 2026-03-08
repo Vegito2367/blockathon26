@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "../../context/CartContext";
 import { CheckCircle, Loader2, SmartphoneNfc } from "lucide-react";
 import Link from "next/link";
+import { io } from "socket.io-client";
 
 function ProcessingContent() {
     const searchParams = useSearchParams();
@@ -16,16 +17,21 @@ function ProcessingContent() {
     const amount = searchParams.get("amount") || "0.00";
     const name = searchParams.get("name") || "Customer";
     const contact = searchParams.get("contact") || "";
+    const SOCKET_URL = 'http://10.104.84.121:3001';
 
     useEffect(() => {
-        // Mocking the POS payment processing delay (e.g., 4 seconds)
-        const timer = setTimeout(() => {
-            setStatus("completed");
-            clearCart();
-        }, 4000);
+        // Initialize socket connection
+        const newSocket = io(SOCKET_URL);
 
-        return () => clearTimeout(timer);
-    }, [clearCart]);
+        newSocket.on('payment_success', (data) => {
+            setStatus("completed");
+        });
+
+        return () => {
+            newSocket.disconnect();
+
+        };
+    }, []);
 
     if (status === "completed") {
         return (

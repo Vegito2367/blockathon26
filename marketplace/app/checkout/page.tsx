@@ -5,9 +5,9 @@ import { useCart } from "../context/CartContext";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, CreditCard, Banknote, Bitcoin } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { io } from 'socket.io-client';
 
-const SOCKET_URL = 'http://10.104.84.121:3001';
+
+
 export default function CheckoutPage() {
     const terminal_id = "term_01"; // Default terminal ID for demonstration
 
@@ -54,34 +54,17 @@ export default function CheckoutPage() {
             } catch (error) {
                 console.error("Error calling checkout API:", error);
             }
-
+            router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}&terminal_id=${terminal_id}`);
             
         } else {
             // In a real app, process payment here.
+            
             clearCart();
         }
     };
 
-    async function handleProcessComplete(){
-        setIsSubmitted(true);
-        const finalTotal = (totalPrice * 1.08).toFixed(2);
-        router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}&terminal_id=${terminal_id}`);
-        clearCart();
-    }
-    useEffect(() => {
-        // Initialize socket connection
-        const newSocket = io(SOCKET_URL);
-
-        newSocket.on('payment_success', (data) => {
-            console.log('Payment successful:', data);
-            handleProcessComplete();
-        });
-
-        return () => {
-            newSocket.disconnect();
-
-        };
-    }, [terminal_id]);
+   
+    
 
     if (isSubmitted) {
         return (
