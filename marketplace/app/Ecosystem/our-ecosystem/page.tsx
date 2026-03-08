@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 const products = [
     {
         id: "pos",
-        title: "VERTEX POS (Tap to Pay)",
+        title: "NexusPay (Tap to Pay)",
         subtitle: "Built by Us • Powered by Crypto",
         description: "Transform any mobile device into a powerful point-of-sale terminal. Accept crypto payments just like standard contactless cards with instant settlement and negligible fees.",
         icon: Smartphone,
