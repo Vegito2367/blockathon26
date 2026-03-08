@@ -1,17 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Alert, 
-  ScrollView, 
-  Animated, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ScrollView,
+  Animated,
   Easing,
   Dimensions
 } from 'react-native';
-import NfcManager, { NfcEvents, Ndef } from 'react-native-nfc-manager';
-
+import NfcManager, { NfcTech, Ndef, NfcEvents, TagEvent } from 'react-native-nfc-manager';
 
 // --- Types ---
 interface RLUSDPaymentPayload {
@@ -70,44 +69,74 @@ export default function NfcReceiver() {
 
   useEffect(() => {
     const initNfc = async () => {
-      const supported = await NfcManager.isSupported();
-      if (!supported) {
-        Alert.alert('NFC Error', 'NFC is not supported on this device');
-        return;
+      try {
+        await NfcManager.start();
+        const supported = await NfcManager.isSupported();
+        if (!supported) {
+          Alert.alert('NFC Error', 'NFC is not supported on this device');
+        }
+      } catch (e) {
+        console.warn('NFC start error:', e);
       }
       await NfcManager.start();
     };
+
     initNfc();
-    return () => {
-      NfcManager.cancelTechnologyRequest();
-    };
-  }, []);
 
-  
-const readNfc = async () => {
-  try {
-    setIsScanning(true);
-    setPayload(null);
+    // Set up persistent NDEF listener
+    NfcManager.setEventListener(NfcEvents.DiscoverTag, (tag: TagEvent) => {
+      console.log('NFC Background Tag Discovered:', tag);
 
-    return new Promise<void>((resolve) => {
-      NfcManager.setEventListener(NfcEvents.DiscoverTag, (tag: any) => {
-        console.log('Tag discovered:', JSON.stringify(tag));
-
-        if (tag.ndefMessage && tag.ndefMessage.length > 0) {
+      if (tag && tag.ndefMessage && tag.ndefMessage.length > 0) {
+        try {
           const ndefRecord = tag.ndefMessage[0];
-          const text = Ndef.text.decodePayload(
-            ndefRecord.payload as unknown as Uint8Array
-          );
-          const data: RLUSDPaymentPayload = JSON.parse(text);
+          const text = Ndef.text.decodePayload(ndefRecord.payload as unknown as Uint8Array);
+          const data = JSON.parse(text);
+          console.log('NFC Background Tag Data:', data);
 
           if (data.type === 'RLUSD_PAY') {
             setPayload(data);
           } else {
-            Alert.alert('Invalid Tag', 'Not an RLUSD payment tag.');
+            Alert.alert('Invalid Tag', 'This is not an RLUSD payment tag.');
           }
-        } else {
-          Alert.alert('Empty Tag', 'No NDEF message found on tag.');
+        } catch (err) {
+          console.error('Error parsing background NDEF tag:', err);
         }
+      }
+      NfcManager.unregisterTagEvent().catch(() => 0); // Stop listening after one successful read
+      setIsScanning(false);
+    });
+
+    return () => {
+      NfcManager.setEventListener(NfcEvents.DiscoverTag, null);
+      NfcManager.cancelTechnologyRequest();
+    };
+  }, []);
+
+  const readNfc = async () => {
+    try {
+      setIsScanning(true);
+      setPayload(null);
+
+      // Register tag event listener. This is an alternative to requestTechnology
+      // that sometimes works better with Android HCE tags.
+      await NfcManager.registerTagEvent();
+
+      // Setting a timeout in case no tag is found
+      setTimeout(() => {
+        if (isScanning) {
+          NfcManager.unregisterTagEvent().catch(() => 0);
+          setIsScanning(false);
+          console.log('NFC scan timeout');
+        }
+      }, 15000); // 15 seconds timeout
+
+    } catch (ex) {
+      console.log('NFC Register Tag Event Error:', ex);
+      setIsScanning(false);
+      NfcManager.unregisterTagEvent().catch(() => 0);
+    }
+  };
 
         NfcManager.unregisterTagEvent();
         setIsScanning(false);
@@ -133,7 +162,7 @@ const cancelScan = async () => {
 
   return (
     <View style={styles.container}>
-      
+
       {/* --- Scanning UI State --- */}
       {isScanning ? (
         <View style={styles.scannerContainer}>
@@ -142,15 +171,15 @@ const cancelScan = async () => {
             <PulsingRing delay={0} />
             <PulsingRing delay={600} />
             <PulsingRing delay={1200} />
-            
+
             {/* Center Anchor */}
             <View style={styles.centerAnchor}>
               <Text style={styles.nfcIcon}>NFC</Text>
             </View>
           </View>
-          
+
           <Text style={styles.scanningText}>Hold near sender...</Text>
-          
+
           <TouchableOpacity style={styles.cancelButton} onPress={cancelScan}>
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
@@ -167,7 +196,7 @@ const cancelScan = async () => {
           {payload && (
             <ScrollView style={styles.resultContainer}>
               <Text style={styles.header}>Payment Received</Text>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.label}>Amount USD</Text>
                 <Text style={styles.amountValue}>${payload.amountUsd.toFixed(2)}</Text>
@@ -176,13 +205,13 @@ const cancelScan = async () => {
               <View style={styles.detailBox}>
                 <Text style={styles.detailLabel}>Raw Amount:</Text>
                 <Text style={styles.detailValue}>{payload.amountRaw}</Text>
-                
+
                 <Text style={styles.detailLabel}>Merchant:</Text>
                 <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">{payload.to}</Text>
-                
+
                 <Text style={styles.detailLabel}>Token:</Text>
                 <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">{payload.tokenAddress}</Text>
-                
+
                 <Text style={styles.detailLabel}>Chain ID:</Text>
                 <Text style={styles.detailValue}>{payload.chainId}</Text>
               </View>
