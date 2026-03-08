@@ -10,7 +10,7 @@ import {
   Easing,
   Dimensions
 } from 'react-native';
-import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
+import NfcManager, { NfcTech, Ndef, NfcEvents, TagEvent } from 'react-native-nfc-manager';
 
 // --- Types ---
 interface RLUSDPaymentPayload {
@@ -79,8 +79,35 @@ export default function NfcReceiver() {
         console.warn('NFC start error:', e);
       }
     };
+
     initNfc();
+
+    // Set up persistent NDEF listener
+    NfcManager.setEventListener(NfcEvents.DiscoverTag, (tag: TagEvent) => {
+      console.log('NFC Background Tag Discovered:', tag);
+
+      if (tag && tag.ndefMessage && tag.ndefMessage.length > 0) {
+        try {
+          const ndefRecord = tag.ndefMessage[0];
+          const text = Ndef.text.decodePayload(ndefRecord.payload as unknown as Uint8Array);
+          const data = JSON.parse(text);
+          console.log('NFC Background Tag Data:', data);
+
+          if (data.type === 'RLUSD_PAY') {
+            setPayload(data);
+          } else {
+            Alert.alert('Invalid Tag', 'This is not an RLUSD payment tag.');
+          }
+        } catch (err) {
+          console.error('Error parsing background NDEF tag:', err);
+        }
+      }
+      NfcManager.unregisterTagEvent().catch(() => 0); // Stop listening after one successful read
+      setIsScanning(false);
+    });
+
     return () => {
+      NfcManager.setEventListener(NfcEvents.DiscoverTag, null);
       NfcManager.cancelTechnologyRequest();
     };
   }, []);
@@ -88,112 +115,25 @@ export default function NfcReceiver() {
   const readNfc = async () => {
     try {
       setIsScanning(true);
-      setPayload(null); // Clear previous data
+      setPayload(null);
 
-      // Attempt to read as NDEF first (works for physical NDEF tags usually)
-      try {
-        await NfcManager.requestTechnology(NfcTech.Ndef);
-        const tag = await NfcManager.getTag();
+      // Register tag event listener. This is an alternative to requestTechnology
+      // that sometimes works better with Android HCE tags.
+      await NfcManager.registerTagEvent();
 
-        if (tag && tag.ndefMessage && tag.ndefMessage.length > 0) {
-          const ndefRecord = tag.ndefMessage[0];
-          const text = Ndef.text.decodePayload(ndefRecord.payload as unknown as Uint8Array);
-          const data: RLUSDPaymentPayload = JSON.parse(text);
-          console.log('NFC Tag Data (NDEF Mode):', data);
-          if (data.type === 'RLUSD_PAY') {
-            setPayload(data);
-            return; // Success, exit function
-          } else {
-            Alert.alert('Invalid Tag', 'This is not an RLUSD payment tag.');
-            return;
-          }
+      // Setting a timeout in case no tag is found
+      setTimeout(() => {
+        if (isScanning) {
+          NfcManager.unregisterTagEvent().catch(() => 0);
+          setIsScanning(false);
+          console.log('NFC scan timeout');
         }
-      } catch (ndefErr) {
-        console.log('NDEF read failed, falling back to IsoDep...', ndefErr);
-        // Don't cancel tech request yet, we'll try IsoDep
-      }
-
-      // If NDEF failed (common when reading another phone using HCE), Try IsoDep
-      await NfcManager.cancelTechnologyRequest(); // Reset before trying new tech
-      await NfcManager.requestTechnology(NfcTech.IsoDep);
-
-      // APDU Commands to select NDEF application and read data
-      // 1. Select NDEF Application (D2760000850101)
-      const selectAppCmd = [0x00, 0xA4, 0x04, 0x00, 0x07, 0xD2, 0x76, 0x00, 0x00, 0x85, 0x01, 0x01, 0x00];
-      await NfcManager.transceive(selectAppCmd);
-
-      // 2. Select Capability Container (CC) file (E103)
-      const selectCcCmd = [0x00, 0xA4, 0x00, 0x0C, 0x02, 0xE1, 0x03];
-      await NfcManager.transceive(selectCcCmd);
-
-      // 3. Read CC File to find NDEF file ID (Usually E104) -> Not strictly necessary if we assume standard E104
-      // const readCcCmd = [0x00, 0xB0, 0x00, 0x00, 0x0F];
-      // const ccData = await NfcManager.transceive(readCcCmd);
-
-      // 4. Select NDEF Data file (E104)
-      const selectNdefCmd = [0x00, 0xA4, 0x00, 0x0C, 0x02, 0xE1, 0x04];
-      await NfcManager.transceive(selectNdefCmd);
-
-      // 5. Read first 2 bytes to get the length of the NDEF message
-      const readLenCmd = [0x00, 0xB0, 0x00, 0x00, 0x02];
-      const lenData = await NfcManager.transceive(readLenCmd);
-
-      if (lenData && lenData.length >= 2) {
-        const ndefLength = (lenData[0] << 8) | lenData[1];
-
-        if (ndefLength > 0) {
-          // 6. Read the actual NDEF message (offset 2 to skip length bytes)
-          const readDataCmd = [0x00, 0xB0, 0x00, 0x02, ndefLength];
-          const ndefRawData = await NfcManager.transceive(readDataCmd);
-
-          if (ndefRawData) {
-            // Basic parsing of the NDEF text record. 
-            // A standard text record has header bytes (e.g. 0xD1, 0x01, length, type('T'), status, lang('en'))
-            // We'll do a simple string extraction of the JSON part.
-
-            // Convert byte array to string
-            let rawText = '';
-            for (let i = 0; i < ndefRawData.length; i++) {
-              rawText += String.fromCharCode(ndefRawData[i]);
-            }
-
-            // Find the start of the JSON payload. Text records usually have language codes like 'en'. 
-            // JSON starts with '{'
-            const jsonStartIndex = rawText.indexOf('{');
-            if (jsonStartIndex !== -1) {
-              const jsonString = rawText.substring(jsonStartIndex);
-              console.log("Extracted JSON from IsoDep:", jsonString);
-              try {
-                const data: RLUSDPaymentPayload = JSON.parse(jsonString);
-                if (data.type === 'RLUSD_PAY') {
-                  setPayload(data);
-                } else {
-                  Alert.alert('Invalid Tag', 'This is not an RLUSD payment tag.');
-                }
-              } catch (parseErr) {
-                console.error("Failed to parse NDEF payload as JSON", parseErr);
-              }
-            } else {
-              console.error("Could not find JSON payload in NDEF record");
-            }
-          }
-        }
-      }
+      }, 15000); // 15 seconds timeout
 
     } catch (ex) {
-      // Don't alert if user cancelled via UI
-
-      let errorMessage = 'Unknown error';
-      if (ex instanceof Error) {
-        errorMessage = ex.message;
-      } else if (typeof ex === 'string') {
-        errorMessage = ex;
-      }
-      console.log('NFC Read Error:', errorMessage);
-
-    } finally {
-      NfcManager.cancelTechnologyRequest();
+      console.log('NFC Register Tag Event Error:', ex);
       setIsScanning(false);
+      NfcManager.unregisterTagEvent().catch(() => 0);
     }
   };
 
