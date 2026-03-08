@@ -15,7 +15,7 @@ const products = [
     },
     {
         id: "stableaid",
-        title: "StableAID",
+        title: "NexusAID",
         subtitle: "Stability Meets Utility",
         description: "A radical transparency module that ensures every decimal of a donation reaches its intended destination without administrative leakage. It leverages immutable ledgers to give donors real-time proof of impact and verified fund routing.",
         icon: ShieldCheck,
