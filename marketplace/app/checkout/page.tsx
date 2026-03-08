@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useCart } from "../context/CartContext";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, CreditCard, Banknote, Bitcoin } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { io } from 'socket.io-client';
 
+const SOCKET_URL = 'http://10.104.84.121:3001';
 export default function CheckoutPage() {
+    const terminal_id = "term_01"; // Default terminal ID for demonstration
+
     const { cart, totalPrice, clearCart } = useCart();
     const [formData, setFormData] = useState({
         name: "",
@@ -54,10 +58,24 @@ export default function CheckoutPage() {
             router.push(`/checkout/processing?amount=${finalTotal}&name=${encodeURIComponent(formData.name)}&contact=${encodeURIComponent(formData.contact)}&terminal_id=${terminal_id}`);
         } else {
             // In a real app, process payment here.
-            setIsSubmitted(true);
             clearCart();
         }
     };
+
+    useEffect(() => {
+        // Initialize socket connection
+        const newSocket = io(SOCKET_URL);
+
+        newSocket.on('payment_success', (data) => {
+            console.log('Payment successful:', data);
+            setIsSubmitted(true);
+        });
+
+        return () => {
+            newSocket.disconnect();
+
+        };
+    }, [terminal_id]);
 
     if (isSubmitted) {
         return (
