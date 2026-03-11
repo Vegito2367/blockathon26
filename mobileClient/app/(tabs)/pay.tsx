@@ -27,6 +27,11 @@ import NfcManager, { Ndef, NfcEvents, TagEvent } from 'react-native-nfc-manager'
 import { useProvider, useAccount } from '@reown/appkit-react-native';
 import { Accent } from '@/constants/theme';
 
+const txTimeoutPromise = (ms: number) =>
+  new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Transaction timed out. Please try again or check your wallet app.')), ms)
+  );
+
 const { width: SCREEN_W } = Dimensions.get('window');
 
 // --- Types ---
@@ -270,10 +275,13 @@ export default function NfcReceiver() {
       const fromAddress = address.includes(':') ? address.split(':').pop()! : address;
       const data = encodeErc20Transfer(payload.to, payload.amountRaw);
 
-      const hash = await provider.request<string>({
-        method: 'eth_sendTransaction',
-        params: [{ from: fromAddress, to: payload.tokenAddress, data, value: '0x0', gas: '0x1D4C0' }],
-      });
+      const hash = await Promise.race([
+        provider.request<string>({
+          method: 'eth_sendTransaction',
+          params: [{ from: fromAddress, to: payload.tokenAddress, data, value: '0x0', gas: '0x1D4C0' }],
+        }),
+        txTimeoutPromise(60000) // 60 seconds
+      ]);
 
       setTxHash(hash);
       setPhase('success');
